@@ -1,5 +1,5 @@
 locals {
-  control_plan_identity_name = "id-${var.region_code}-${local.cluster_name}-aks-controlplane"
+  control_plan_identity_name = "id-${var.region_code}-${var.solution_fqn}-${var.cluster_name}-aks-controlplane"
 }
 # create a user managed identity for the AKS cluster
 resource azurerm_user_assigned_identity control_plane {

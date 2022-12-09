@@ -1,85 +1,113 @@
 locals {
-  cluster_name = var.solution_fqn
+  aks_cluster_name = "aks-${var.region_code}-${var.solution_fqn}-${var.cluster_name}"
+  node_resource_group_name = "rg-${var.region_code}-${var.solution_fqn}-${var.cluster_name}-nodes"
   aks_addon_oms_agent_enabled = var.azure_monitor_enabled
+  default_node_pool_name = "aks-${var.region_code}-${var.solution_fqn}-${var.cluster_name}-system"
+  system_pools = [for np in var.node_pools : np if np.role == "system"]
 }
 
 # create a AKS cluster instance
 resource azurerm_kubernetes_cluster cluster {
-  name = "aks-${var.region_code}-${local.cluster_name}"
+  name                = local.aks_cluster_name
   resource_group_name = var.resource_group_name
-  location = var.resource_group_location
-  dns_prefix = local.cluster_name
-  # IMPORTANT: we need to pin the kubernetes version, otherwise Azure will determine it!
-  kubernetes_version = var.aks_version
-  tags = merge({"Name" = "aks-${var.region_code}-${local.cluster_name}"}, local.module_common_tags)
+  location            = var.resource_group_location
 
-  # defines the system node group or system pool
-  default_node_pool {
-    name = "system"
-    vm_size = var.system_pool_vm_sku
-    availability_zones = ["1", "2", "3"]
-    enable_auto_scaling = true
-    min_count = var.system_pool_min_size
-    node_count = var.system_pool_desired_size
-    max_count = var.system_pool_max_size
-    enable_node_public_ip = false
-    orchestrator_version = var.aks_version
-    os_disk_size_gb = var.system_pool_os_disk_size
-    type = "VirtualMachineScaleSets"
-    vnet_subnet_id = var.node_groups_subnet_id
-    only_critical_addons_enabled = true
+  # defines the system node pool
+  dynamic "default_node_pool" {
+    for_each = toset(local.system_pools)
+    content {
+      name                         = "system"
+      vm_size                      = default_node_pool.value.vm_sku
+      zones                        = ["1", "2", "3"]
+      enable_auto_scaling          = true
+      min_count                    = default_node_pool.value.min_size
+      node_count                   = default_node_pool.value.desired_size
+      max_count                    = default_node_pool.value.max_size
+      enable_node_public_ip        = false
+      orchestrator_version         = default_node_pool.value.kubernetes_version
+      os_disk_size_gb              = default_node_pool.value.os_disk_size
+      type                         = "VirtualMachineScaleSets"
+      vnet_subnet_id               = default_node_pool.value.subnet_id
+      only_critical_addons_enabled = true
 
-    tags = merge({ Name = "np-${var.region_code}-${local.cluster_name}-system"}, local.module_common_tags)
-    upgrade_settings {
-      max_surge = var.node_group_upgrade_max_surge
+      tags = merge({ Name = local.default_node_pool_name }, local.module_common_tags)
+      upgrade_settings {
+        max_surge = default_node_pool.value.max_surge
+      }
     }
   }
 
-  addon_profile {
-    aci_connector_linux {
-      enabled = false
-    }
-    azure_policy {
-      enabled = var.aks_addon_azure_policy_enabled
-    }
-    http_application_routing {
-      enabled = false
-    }
-    kube_dashboard {
-      enabled = var.aks_addon_dashboard_enabled
-    }
-    oms_agent {
-      enabled = local.aks_addon_oms_agent_enabled
-      log_analytics_workspace_id = local.aks_addon_oms_agent_enabled ? var.log_analytics_workspace_id : null
-    }
+  dns_prefix = local.aks_cluster_name
+
+  api_server_authorized_ip_ranges = [ "0.0.0.0/0" ]
+
+  automatic_channel_upgrade = "stable"
+
+  auto_scaler_profile {
+    expander = "least-waste"
+    # TODO: complete block!
   }
+
+  azure_active_directory_role_based_access_control {
+    managed = true
+    admin_group_object_ids = var.aks_admin_group_object_ids
+    azure_rbac_enabled = true
+  }
+
+  azure_policy_enabled = var.aks_addon_azure_policy_enabled
+
+  # use disk encryption set if disk encryption is enabled
+  disk_encryption_set_id = var.aks_disk_encryption_enabled ? azurerm_disk_encryption_set.cmk_disk_encryption[0].id : null
+
+  http_application_routing_enabled = false
 
   identity {
     # we bring our own identity which has all required role assignments
     type = "UserAssigned"
-    user_assigned_identity_id = azurerm_user_assigned_identity.control_plane.id
+    identity_ids = [ azurerm_user_assigned_identity.control_plane.id ]
+  }
+/*
+  ingress_application_gateway {
+    # TODO: complete block!
+  }
+ */
+  key_vault_secrets_provider {
+    secret_rotation_enabled = true
+    secret_rotation_interval = "2m"
+  }
+  # IMPORTANT: we need to pin the kubernetes version, otherwise Azure will determine it!
+  kubernetes_version = var.kubernetes_version
+
+  maintenance_window {
+    # allow cluster maintenance on Thursday 4am
+    allowed {
+      day = "Thursday"
+      hours = [ 4 ]
+    }
   }
 
   network_profile {
-    network_plugin = var.aks_network_plugin_type
-    outbound_type = "loadBalancer"
-    load_balancer_sku = "Standard"
+    network_plugin = "azure"
+    network_mode = "transparent"
+    network_policy = "azure"
     # all internally used IP addresses and IP address ranges must be set as variables!!!
     dns_service_ip = var.aks_dns_service_ip
     docker_bridge_cidr = var.aks_docker_bridge_cidr
-    pod_cidr = var.aks_network_plugin_type == "kubenet" ? var.aks_pod_cidr : null
     service_cidr = var.aks_service_cidr
+    outbound_type = "loadBalancer"
+    load_balancer_sku = "standard"
   }
 
-  role_based_access_control {
-    enabled = true
-    /* TODO: enable when we have proper groups in Azure AD for administrators
-    azure_active_directory {
-      managed = var.aks_addon_aad_rbac_enabled && length(var.aks_addon_aad_rbac_admin_group_ids) > 0
-      admin_group_object_ids = var.aks_addon_aad_rbac_admin_group_ids
-    }
-    */
+  node_resource_group = local.node_resource_group_name
+/*
+  oms_agent {
+    log_analytics_workspace_id = ""
+    # TODO: complete block!
   }
+*/
+  public_network_access_enabled = true
+
+  tags = merge({"Name" = local.aks_cluster_name}, local.module_common_tags)
 
   lifecycle {
     ignore_changes = [
@@ -92,6 +120,4 @@ resource azurerm_kubernetes_cluster cluster {
   # wait until the role assignment has been assigned to the AKS cluster identity
   depends_on = [null_resource.wait_for_role_assignments_to_control_plane]
 
-  # use disk encryption set if disk encryption is enabled
-  disk_encryption_set_id = var.aks_disk_encryption_enabled ? azurerm_disk_encryption_set.cmk_disk_encryption[0].id : null
 }

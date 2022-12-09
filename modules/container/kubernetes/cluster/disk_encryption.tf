@@ -1,7 +1,12 @@
+locals {
+  kv_key_name = "key-${var.region_code}-${var.solution_fqn}-${var.cluster_name}-aks"
+  des_name = "des-${var.region_code}-${var.solution_fqn}-${var.cluster_name}-aks"
+}
+
 # create a cluster-specific customer managed key for disk encryption
 resource azurerm_key_vault_key cmk_disk_encryption {
   count = var.aks_disk_encryption_enabled ? 1 : 0
-  name = "key-${var.region_code}-${local.cluster_name}-aks"
+  name = local.kv_key_name
   key_vault_id = var.key_vault_id
   key_type = "RSA"
   key_size = 2048
@@ -15,13 +20,13 @@ resource azurerm_key_vault_key cmk_disk_encryption {
     "wrapKey",
   ]
 
-  tags = merge({"Name" = "key-${var.region_code}-${local.cluster_name}-aks"}, local.module_common_tags)
+  tags = merge({"Name" = local.kv_key_name}, local.module_common_tags)
 }
 
 # create an instance of a disk encryption set
 resource azurerm_disk_encryption_set cmk_disk_encryption {
   count = var.aks_disk_encryption_enabled ? 1 : 0
-  name = "des-${var.region_code}-${local.cluster_name}-aks"
+  name = local.des_name
   resource_group_name = var.resource_group_name
   location = var.region_name
   key_vault_key_id = azurerm_key_vault_key.cmk_disk_encryption[0].id
@@ -30,21 +35,15 @@ resource azurerm_disk_encryption_set cmk_disk_encryption {
     type = "SystemAssigned"
   }
 
-  tags = merge({"Name" = "des-${var.region_code}-${local.cluster_name}-aks"}, local.module_common_tags)
+  tags = merge({"Name" = local.des_name}, local.module_common_tags)
 }
 
-# grant the disk encryption set access to key vault
-resource azurerm_key_vault_access_policy cmk_disk_encryption {
+resource azurerm_role_assignment cmk_disk_encryption {
   count = var.aks_disk_encryption_enabled ? 1 : 0
-  key_vault_id = var.key_vault_id
-  tenant_id = azurerm_disk_encryption_set.cmk_disk_encryption[0].identity[0].tenant_id
-  object_id = azurerm_disk_encryption_set.cmk_disk_encryption[0].identity[0].principal_id
-
-  key_permissions = [
-    "get",
-    "wrapkey",
-    "unwrapkey"
-  ]
+  principal_id = azurerm_disk_encryption_set.cmk_disk_encryption[0].identity[0].principal_id
+  scope = azurerm_key_vault_key.cmk_disk_encryption[0].key_vault_id
+  description = "Allow AKS control plane identity to read the disk encryption key from KeyVault"
+  role_definition_name = "Key Vault Crypto Service Encryption User"
 }
 
 # create a kubernetes storage class for encrypted default disks

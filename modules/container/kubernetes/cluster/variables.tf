@@ -38,7 +38,12 @@ variable resource_group_location {
   type = string
 }
 
-variable aks_version {
+variable cluster_name {
+  description = "Name of the AKS cluster; will be transformed into a fully qualified AKS cluster name"
+  type = string
+}
+
+variable kubernetes_version {
   description = "Kubernetes version the AKS service instance should be based on"
   type = string
 }
@@ -46,41 +51,6 @@ variable aks_version {
 variable loadbalancer_subnet_id {
   description = "Unique identifier of the internal loadbalancer subnet"
   type = string
-}
-
-variable node_groups_subnet_id {
-  description = "Unique identifier of the AKS node groups subnet"
-  type = string
-}
-
-variable system_pool_vm_sku {
-  description = "VM instance size to be used for nodes in the system pool"
-  type = string
-  default = "Standard_D2s_v3"
-}
-
-variable system_pool_min_size {
-  description = "minimum number of nodes in the system pool"
-  type = number
-  default = 2
-}
-
-variable system_pool_desired_size {
-  description = "desired number of nodes in the system pool"
-  type = number
-  default = 2
-}
-
-variable system_pool_max_size {
-  description = "maximum number of nodes in the system pool"
-  type = number
-  default = 6
-}
-
-variable system_pool_os_disk_size {
-  description = "OS disk size of nodes in the system pool in GB"
-  type = number
-  default = 512
 }
 
 variable vnet_name {
@@ -126,16 +96,6 @@ variable aks_addon_azure_policy_enabled {
   default = false
 }
 
-variable aks_network_plugin_type {
-  description = "Defines the type of Kubernetes Network Plugin to use; possible values are: kubenet, azure"
-  type = string
-  default = "kubenet"
-  validation {
-    condition = var.aks_network_plugin_type == "kubenet" || var.aks_network_plugin_type == "azure"
-    error_message = "The supported network plugin types are either kubenet or azure."
-  }
-}
-
 variable aks_addon_aad_rbac_enabled {
   description = "Enables the Azure AD add-on for Kubernetes RBAC"
   type = bool
@@ -164,12 +124,6 @@ variable container_registry_id {
   type = string
 }
 
-variable node_group_upgrade_max_surge {
-  description = "Percentage of nodes which can be added during an upgrade"
-  type = string
-  default = "33%"
-}
-
 variable aks_disk_encryption_enabled {
   description = "Enables encryption of OS disks and persistent volumes with customer-managed keys"
   type = bool
@@ -182,10 +136,11 @@ variable azure_monitor_enabled {
   default = false
 }
 
-variable user_node_groups {
-  description = "Information about additional user node groups to be added to the AKS cluster"
+variable node_pools {
+  description = "Information about node pools to be added to the AKS cluster; must contain at least on with role system"
   type = list(object({
     name = string
+    role = string
     vm_sku = string
     max_size = number
     min_size = number
@@ -193,12 +148,10 @@ variable user_node_groups {
     max_surge = string
     kubernetes_version = string
     os_disk_size = number
-    priority = string
-    spotPrice = string
+    subnet_id = string
     labels = map(string)
     taints = list(string)
   }))
-  default = []
 }
 
 variable internal_loadbalancer_enabled {
@@ -211,4 +164,37 @@ variable internal_loadbalancer_subnet_name {
   description = "Name of a subnet supposed to host the internal loadbalancer"
   type = string
   default = ""
+}
+
+variable aks_admin_group_object_ids {
+  description = "Object IDs of Azure AD groups whose members are cluster admins"
+  type = list(string)
+}
+
+variable diagnostic_settings {
+  description = "Configuration of the diagnostic settings applied to the AKS cluster; only effective if azure_monitor_enabled is `true`"
+  type = object({
+    retention_days = number
+    logs = list(string)
+    metrics = list(string)
+  })
+  default = {
+    retention_days = 7
+    logs = [
+      "Kubernetes API Server",
+      "Kubernetes Audit",
+      "Kubernetes Audit Admin Logs",
+      "Kubernetes Controller Manager",
+      "Kubernetes Scheduler",
+      "Kubernetes Cluster Autoscaler",
+      "Kubernetes Cloud Controller Manager",
+      "guard",
+      "csi-azuredisk-controller",
+      "csi-azurefile-controller",
+      "csi-snapshot-controller"
+    ]
+    metrics = [
+      "AllMetrics"
+    ]
+  }
 }
