@@ -32,8 +32,3 @@ output aks_loadbalancer_external_id {
   description = "Unique identifier of the external loadbalancer managed by the AKS cluster"
   value = data.azurerm_lb.external.id
 }
-
-output aks_loadbalancer_internal_id {
-  description = "Unique identifier of the internal loadbalancer managed by the AKS cluster"
-  value = var.internal_loadbalancer_enabled ? data.azurerm_lb.internal[0].id : ""
-}

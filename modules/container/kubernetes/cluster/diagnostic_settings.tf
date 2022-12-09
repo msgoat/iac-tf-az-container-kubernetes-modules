@@ -3,7 +3,7 @@ locals {
 }
 
 resource azurerm_monitor_diagnostic_setting cluster {
-  count =  var.azure_monitor_enabled ? 1 : 0
+  count =  0 # var.azure_monitor_enabled ? 1 : 0
   name = local.diagnostic_setting_name
   log_analytics_workspace_id = var.log_analytics_workspace_id
   target_resource_id = azurerm_kubernetes_cluster.cluster.id

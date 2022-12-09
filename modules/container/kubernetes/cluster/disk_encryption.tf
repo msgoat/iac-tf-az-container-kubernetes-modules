@@ -45,39 +45,3 @@ resource azurerm_role_assignment cmk_disk_encryption {
   description = "Allow AKS control plane identity to read the disk encryption key from KeyVault"
   role_definition_name = "Key Vault Crypto Service Encryption User"
 }
-
-# create a kubernetes storage class for encrypted default disks
-resource kubernetes_storage_class default_encrypted {
-  count = var.aks_disk_encryption_enabled ? 1 : 0
-  metadata {
-    name = "default-encrypted"
-  }
-  storage_provisioner = "kubernetes.io/azure-disk"
-  parameters = {
-    cachingmode = "ReadOnly"
-    kind = "Managed"
-    storageaccounttype = "StandardSSD_LRS"
-    diskEncryptionSetID = azurerm_disk_encryption_set.cmk_disk_encryption[0].id
-  }
-  allow_volume_expansion = true
-  reclaim_policy = "Delete"
-  volume_binding_mode = "WaitForFirstConsumer"
-}
-
-# create a kubernetes storage class for encrypted managed premium disks
-resource kubernetes_storage_class managed_premium_encrypted {
-  count = var.aks_disk_encryption_enabled ? 1 : 0
-  metadata {
-    name = "managed-premium-encrypted"
-  }
-  storage_provisioner = "kubernetes.io/azure-disk"
-  parameters = {
-    cachingmode = "ReadOnly"
-    kind = "Managed"
-    storageaccounttype = "Premium_LRS"
-    diskEncryptionSetID = azurerm_disk_encryption_set.cmk_disk_encryption[0].id
-  }
-  allow_volume_expansion = true
-  reclaim_policy = "Delete"
-  volume_binding_mode = "WaitForFirstConsumer"
-}

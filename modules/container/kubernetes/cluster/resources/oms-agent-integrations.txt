@@ -1,3 +1,0 @@
-[integrations.azure_network_policy_manager]
-    collect_basic_metrics = false
-    collect_advanced_metrics = false

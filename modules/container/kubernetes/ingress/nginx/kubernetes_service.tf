@@ -9,7 +9,7 @@ resource time_sleep wait_for_loadbalancer_ip {
 data kubernetes_service nginx_controller {
   metadata {
     name = "ingress-nginx-controller"
-    namespace = module.namespace.k8s_namespace_name
+    namespace = var.kubernetes_namespace_name
   }
   depends_on = [time_sleep.wait_for_loadbalancer_ip[0]]
 }

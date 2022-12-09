@@ -1,2 +1,0 @@
-[metric_collection_settings.collect_kube_system_pv_metrics]
-  enabled = true

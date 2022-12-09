@@ -374,9 +374,7 @@ controller:
   service:
     enabled: true
 
-    annotations:
-      service.beta.kubernetes.io/azure-load-balancer-internal: "true"
-      service.beta.kubernetes.io/azure-load-balancer-internal-subnet: "snet-westeu-cxppltf-dev-kubernetes-loadbalancer"
+    annotations: {}
 
     labels: {}
     # clusterIP: ""
@@ -682,7 +680,8 @@ resource helm_release nginx {
   dependency_update = true
   atomic = true
   cleanup_on_fail = true
-  namespace = module.namespace.k8s_namespace_name
+  namespace = var.kubernetes_namespace_name
+  create_namespace = true
   repository = "https://kubernetes.github.io/ingress-nginx"
   values = [ local.nginx_values ]
   wait = true

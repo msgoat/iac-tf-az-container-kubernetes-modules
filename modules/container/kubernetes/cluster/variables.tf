@@ -154,18 +154,6 @@ variable node_pools {
   }))
 }
 
-variable internal_loadbalancer_enabled {
-  description = "Controls if an internal loadbalancer should be managed by AKS as well"
-  type = bool
-  default = false
-}
-
-variable internal_loadbalancer_subnet_name {
-  description = "Name of a subnet supposed to host the internal loadbalancer"
-  type = string
-  default = ""
-}
-
 variable aks_admin_group_object_ids {
   description = "Object IDs of Azure AD groups whose members are cluster admins"
   type = list(string)
@@ -185,7 +173,6 @@ variable diagnostic_settings {
       "Kubernetes Audit",
       "Kubernetes Audit Admin Logs",
       "Kubernetes Controller Manager",
-      "Kubernetes Scheduler",
       "Kubernetes Cluster Autoscaler",
       "Kubernetes Cloud Controller Manager",
       "guard",
@@ -198,3 +185,28 @@ variable diagnostic_settings {
     ]
   }
 }
+
+variable aks_addon_agic_enabled {
+  description = "Enables the Azure Application Gateway Ingress Controller"
+  type = bool
+  default = false
+}
+
+variable "aks_addon_agic_application_gateway_name" {
+  description = "Name of the Application Gateway in front of AKS; only required if `aks_addon_agic_enabled` is true"
+  type = string
+  default = ""
+}
+
+variable "aks_addon_agic_application_gateway_id" {
+  description = "Unique identifier of the Application Gateway in front of AKS; only required if `aks_addon_agic_enabled` is true"
+  type = string
+  default = ""
+}
+
+variable "aks_addon_agic_application_gateway_subnet_id" {
+  description = "Unique identifier of the subnet supposed to host or hosting the Application Gateway in front of AKS; only required if `aks_addon_agic_enabled` is true."
+  type = string
+  default = ""
+}
+

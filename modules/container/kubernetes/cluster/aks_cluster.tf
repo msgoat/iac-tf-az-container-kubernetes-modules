@@ -4,6 +4,15 @@ locals {
   aks_addon_oms_agent_enabled = var.azure_monitor_enabled
   default_node_pool_name = "aks-${var.region_code}-${var.solution_fqn}-${var.cluster_name}-system"
   system_pools = [for np in var.node_pools : np if np.role == "system"]
+  disabled_agic_settings = []
+  enabled_agic_settings = [
+    {
+      gateway_id = var.aks_addon_agic_application_gateway_id
+      gateway_name = var.aks_addon_agic_application_gateway_name == "" ? "agw-${var.region_code}-${var.solution_fqn}-${var.cluster_name}" : var.aks_addon_agic_application_gateway_name
+      subnet_id = var.aks_addon_agic_application_gateway_subnet_id
+    }
+  ]
+  agic_settings = var.aks_addon_agic_enabled ? local.enabled_agic_settings : local.disabled_agic_settings
 }
 
 # create a AKS cluster instance
@@ -66,11 +75,16 @@ resource azurerm_kubernetes_cluster cluster {
     type = "UserAssigned"
     identity_ids = [ azurerm_user_assigned_identity.control_plane.id ]
   }
-/*
-  ingress_application_gateway {
-    # TODO: complete block!
+
+  dynamic ingress_application_gateway {
+    for_each = toset(local.agic_settings)
+    content {
+      gateway_id = ingress_application_gateway.value.gateway_id
+      gateway_name = ingress_application_gateway.value.gateway_name
+      subnet_id    = ingress_application_gateway.value.subnet_id
+    }
   }
- */
+
   key_vault_secrets_provider {
     secret_rotation_enabled = true
     secret_rotation_interval = "2m"
