@@ -32,3 +32,8 @@ output aks_loadbalancer_external_id {
   description = "Unique identifier of the external loadbalancer managed by the AKS cluster"
   value = data.azurerm_lb.external.id
 }
+
+output aks_addon_agic_managed_identity_id {
+  description = "Unique identifier of the managed identity owning Azure Application Gateway Ingress Controller"
+  value = var.aks_addon_agic_enabled ? azurerm_kubernetes_cluster.cluster.ingress_application_gateway[0].ingress_application_gateway_identity[0].user_assigned_identity_id : null
+}

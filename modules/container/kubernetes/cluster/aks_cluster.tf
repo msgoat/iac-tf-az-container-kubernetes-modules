@@ -8,8 +8,8 @@ locals {
   enabled_agic_settings = [
     {
       gateway_id = var.aks_addon_agic_application_gateway_id
-      gateway_name = var.aks_addon_agic_application_gateway_name == "" ? "agw-${var.region_code}-${var.solution_fqn}-${var.cluster_name}" : var.aks_addon_agic_application_gateway_name
-      subnet_id = var.aks_addon_agic_application_gateway_subnet_id
+      gateway_name = var.aks_addon_agic_application_gateway_id == "" ? var.aks_addon_agic_application_gateway_name : null
+      subnet_id = var.aks_addon_agic_application_gateway_id == "" ? var.aks_addon_agic_application_gateway_subnet_id : null
     }
   ]
   agic_settings = var.aks_addon_agic_enabled ? local.enabled_agic_settings : local.disabled_agic_settings
